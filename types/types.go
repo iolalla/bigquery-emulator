@@ -541,6 +541,19 @@ func parseDatetime(v string) (time.Time, error) {
 	return time.Parse("2006-01-02 15:04:05.999999", v)
 }
 
+func ParseDatetime(v string) (time.Time, error) {
+	if t, err := time.Parse("2006-01-02T15:04:05.999999 UTC", v); err == nil {
+		return t, nil
+	}
+	if te, err1 := time.Parse("2006-01-02 15:04:05 +0000 UTC", v); err1 == nil {
+		return te, nil
+	}
+	if te, err1 := time.Parse("2006-01-02 15:04:05 +0000 UTC", v); err1 == nil {
+		return te, nil
+	}
+	return time.Parse("2006-01-02 15:04:05.999999", v)
+}
+
 func normalizeData(v interface{}, field *bigqueryv2.TableFieldSchema) (interface{}, error) {
 	rv := reflect.ValueOf(v)
 	kind := rv.Kind()
