@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/goccy/bigquery-emulator/internal/connection"
 	"github.com/goccy/bigquery-emulator/types"
@@ -10,7 +11,7 @@ import (
 func (s *Server) addProjects(ctx context.Context, projects []*types.Project) error {
 	for _, project := range projects {
 		if err := s.addProject(ctx, project); err != nil {
-			return err
+			return fmt.Errorf("failed to load project %q: %w", project.ID, err)
 		}
 	}
 	return nil
@@ -30,7 +31,7 @@ func (s *Server) addProject(ctx context.Context, project *types.Project) error {
 		for _, table := range dataset.Tables {
 			table.SetupMetadata(project.ID, dataset.ID)
 			if err := s.addTableData(ctx, tx, project, dataset, table); err != nil {
-				return err
+				return fmt.Errorf("failed to load dataset %q table %q: %w", dataset.ID, table.ID, err)
 			}
 		}
 	}

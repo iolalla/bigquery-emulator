@@ -4797,3 +4797,38 @@ func TestExportDataStatement(t *testing.T) {
 		}
 	})
 }
+
+func TestLoadInvalidTimestampErrorIncludesSourceContext(t *testing.T) {
+	const invalidTimestamp = "2026-08-23 15:19:16 +0000 UTC"
+	bqServer, err := server.New(server.TempStorage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer bqServer.Close()
+
+	err = bqServer.Load(server.StructSource(types.NewProject(
+		"context-project",
+		types.NewDataset(
+			"context-dataset",
+			types.NewTable(
+				"context-table",
+				[]*types.Column{types.NewColumn("created_at", types.TIMESTAMP)},
+				types.Data{{"created_at": invalidTimestamp}},
+			),
+		),
+	)))
+	if err == nil {
+		t.Fatal("Load returned nil, want invalid timestamp error")
+	}
+	for _, context := range []string{
+		`project "context-project"`,
+		`dataset "context-dataset"`,
+		`table "context-table"`,
+		`row 1`,
+		invalidTimestamp,
+	} {
+		if !strings.Contains(err.Error(), context) {
+			t.Errorf("error %q does not contain %q", err, context)
+		}
+	}
+}

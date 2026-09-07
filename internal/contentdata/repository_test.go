@@ -1,6 +1,7 @@
 package contentdata
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -81,5 +82,14 @@ func TestEscapeIdent(t *testing.T) {
 	}
 	if got := escapeIdent("a`b"); !strings.Contains(got, "``") {
 		t.Errorf("escapeIdent(a`b) = %q, want a doubled backtick", got)
+	}
+}
+
+func TestReadableValueErrorDecodesValueEnvelope(t *testing.T) {
+	const encoded = "eyJoZWFkZXIiOiJzdHJpbmciLCJib2R5IjoiMjAyNi0wOC0yMyAxNToxOToxNiArMDAwMCBVVEMifQ=="
+	err := readableValueError{err: errors.New("failed to convert " + encoded + " to time.Time type")}
+	const want = "failed to convert 2026-08-23 15:19:16 +0000 UTC to time.Time type"
+	if got := err.Error(); got != want {
+		t.Fatalf("Error() = %q, want %q", got, want)
 	}
 }

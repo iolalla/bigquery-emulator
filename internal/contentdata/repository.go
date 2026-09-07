@@ -3,9 +3,11 @@ package contentdata
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -622,7 +624,7 @@ func (r *Repository) AddTableData(ctx context.Context, tx *connection.Tx, projec
 		return err
 	}
 
-	for _, data := range table.Data {
+	for rowIndex, data := range table.Data {
 		values := make([]interface{}, 0, len(table.Columns))
 
 		for _, column := range columns {
@@ -658,7 +660,7 @@ func (r *Repository) AddTableData(ctx context.Context, tx *connection.Tx, projec
 		}
 
 		if _, err := stmt.ExecContext(ctx, values...); err != nil {
-			return err
+			return fmt.Errorf("failed to insert row %d: %w", rowIndex+1, readableValueError{err: err})
 		}
 	}
 
@@ -677,6 +679,39 @@ func jsonColumnText(value interface{}) (string, error) {
 		return "", err
 	}
 	return string(encoded), nil
+}
+
+var encodedValuePattern = regexp.MustCompile(`[A-Za-z0-9+/]{20,}={0,2}`)
+
+type readableValueError struct {
+	err error
+}
+
+func (e readableValueError) Error() string {
+	return encodedValuePattern.ReplaceAllStringFunc(e.err.Error(), decodeValueEnvelope)
+}
+
+func (e readableValueError) Unwrap() error {
+	return e.err
+}
+
+func decodeValueEnvelope(encoded string) string {
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return encoded
+	}
+	var envelope struct {
+		Header string          `json:"header"`
+		Body   json.RawMessage `json:"body"`
+	}
+	if err := json.Unmarshal(decoded, &envelope); err != nil || envelope.Header == "" || len(envelope.Body) == 0 {
+		return encoded
+	}
+	var body string
+	if err := json.Unmarshal(envelope.Body, &body); err == nil {
+		return body
+	}
+	return string(envelope.Body)
 }
 
 // TableDeletion identifies one table or view to drop. A view must be dropped
